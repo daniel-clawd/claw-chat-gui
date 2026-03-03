@@ -2,6 +2,7 @@ import express from 'express'
 import cors from 'cors'
 import dotenv from 'dotenv'
 import fs from 'fs/promises'
+import { existsSync } from 'fs'
 import path from 'path'
 import { fileURLToPath } from 'url'
 
@@ -19,6 +20,8 @@ const defaultUser = process.env.OPENCLAW_USER || 'chat-gui'
 const __filename = fileURLToPath(import.meta.url)
 const __dirname = path.dirname(__filename)
 const historyPath = path.join(__dirname, 'chat-history.json')
+const clientDistPath = path.resolve(__dirname, '../dist')
+const hasClientBundle = existsSync(clientDistPath)
 
 const readHistory = async () => {
   try {
@@ -129,6 +132,17 @@ app.post('/api/chat', async (req, res) => {
     res.status(502).json({ error: message })
   }
 })
+
+if (hasClientBundle) {
+  app.use(express.static(clientDistPath))
+  app.use((req, res, next) => {
+    if (req.method !== 'GET' || req.path.startsWith('/api') || req.path.startsWith('/health')) {
+      return next()
+    }
+
+    res.sendFile(path.join(clientDistPath, 'index.html'))
+  })
+}
 
 app.listen(port, () => {
   console.log(`Chat GUI server listening on http://localhost:${port}`)
